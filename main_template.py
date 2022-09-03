@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 
 import numpy as np
 import skfuzzy as fuzz
+from skfuzzy import control as ctrl
 
 #
 # przygotowanie środowiska
@@ -19,14 +20,16 @@ control = HumanControl()
 env = gym.make('gym_PSI:CartPole-v2')
 env.reset()
 env.render()
-noFuzzy = False
 
 
-def generateMembershipFunction(variable, range):
-    left = fuzz.trimf(variable, [-range, -range, 0])
-    mid = fuzz.trimf(variable, [-range / 100, 0, range / 100])
-    right = fuzz.trimf(variable, [0, range, range])
-    return left, mid, right
+# noFuzzy = False
+
+
+# def generateMembershipFunction(variable, range):
+#     left = fuzz.trimf(variable, [-range, -range, 0])
+#     mid = fuzz.trimf(variable, [-range / 100, 0, range / 100])
+#     right = fuzz.trimf(variable, [0, range, range])
+#     return left, mid, right
 
 
 # def generateMembershipFunction(variable, range):
@@ -55,11 +58,11 @@ def generateMembershipFunction(variable, range):
 #     right = fuzz.trimf(variable, [0, range / 2, range])
 #     return left, mid, right
 
-def generateForceMembershipFunction(variable, range):
-    left = fuzz.trapmf(variable, [-range * 2, -range / 2, -range / 4, 0])
-    mid = fuzz.trapmf(variable, [-range, -range / 4, range / 4, range])
-    right = fuzz.trapmf(variable, [0, range / 4, range/2, range * 2])
-    return left, mid, right
+# def generateForceMembershipFunction(variable, range):
+#     left = fuzz.trapmf(variable, [-range - range, -range, -range, -range + range])
+#     mid = fuzz.trapmf(variable, [-range, 0, 0, range])
+#     right = fuzz.trapmf(variable, [range - range, range, range, range+range])
+#     return left, mid, right
 
 
 def on_key_press(key: int, mod: int):
@@ -82,7 +85,7 @@ env.unwrapped.viewer.window.on_key_press = on_key_press
 #########################################################
 # KOD INICJUJĄCY - do wypełnienia
 #########################################################
-
+fuzzy_response = CartForce.IDLE_FORCE
 """
 
 1. Określ dziedzinę dla każdej zmiennej lingwistycznej. Każda zmienna ma własną dziedzinę.
@@ -103,24 +106,68 @@ ax0.legend()
 plt.tight_layout()
 plt.show()
 """
-fig, (ax0) = plt.subplots(nrows=1, figsize=(8, 9))
-force_variable = np.arange(-20, 20, 0.01)
-force_variable_left, force_variable_zero, force_variable_right = generateForceMembershipFunction(force_variable, 20)
-angle_variable = np.arange(-1, 1, 0.01)
-angle_variable_left, angle_variable_zero, angle_variable_right = generateMembershipFunction(angle_variable, 1)
-cart_velocity_variable = np.arange(-2, 2, 0.01)
-cart_velocity_variable_left, cart_velocity_variable_zero, cart_velocity_variable_right = generateMembershipFunction(
-    cart_velocity_variable, 2)
-cart_pos_variable = np.arange(-4, 4, 0.01)
-cart_pos_variable_left, cart_pos_variable_zero, cart_pos_variable_right = generateMembershipFunction(
-    cart_pos_variable, 4)
-ax0.plot(angle_variable, angle_variable_left, 'b', linewidth=1.5, label='Left')
-ax0.plot(angle_variable, angle_variable_zero, 'g', linewidth=1.5, label='Zero')
-ax0.plot(angle_variable, angle_variable_right, 'r', linewidth=1.5, label='Right')
-ax0.set_title('Angle')
-ax0.legend()
+angle = ctrl.Antecedent(np.arange(-0.5, 0.5, 0.01), 'poleAngle')
+position = ctrl.Antecedent(np.arange(-5, 5, 0.1), 'polePos')
+force = ctrl.Consequent(np.arange(-20, 20, 0.1), 'force')
+angle.automf(3)
+position.automf(3)
+force.automf(7, 'quantity')
+angle.view()
+position.view()
+force.view()
+#WORKING DO NOT TOUCH !
+# left1 = ctrl.Rule(position['poor'], force['low'])
+# left2 = ctrl.Rule(angle['poor'], force['lowest'])
+# #left3 = ctrl.Rule(angle['average'], force['average'])
+# #left4 = ctrl.Rule(position['average'], force['average'])
+# left5 = ctrl.Rule(angle['good'], force['highest'])
+# left6 = ctrl.Rule(position['good'], force['high'])
+# ruleSet = ctrl.ControlSystem([left1, left2, left5, left6])
+#Working but wiggling more
+# left1 = ctrl.Rule(position['poor'], force['lowest'])
+# left2 = ctrl.Rule(angle['poor'], force['lower'])
+# #left3 = ctrl.Rule(angle['average'], force['average'])
+# #left4 = ctrl.Rule(position['average'], force['average'])
+# left5 = ctrl.Rule(angle['good'], force['higher'])
+# left6 = ctrl.Rule(position['good'], force['highest'])
+# ruleSet = ctrl.ControlSystem([left1, left2, left5, left6])
 
-plt.tight_layout()
+left1 = ctrl.Rule(position['poor'], force['low'])
+left2 = ctrl.Rule(angle['poor'], force['lowest'])
+#left3 = ctrl.Rule(angle['average'], force['average'])
+#left4 = ctrl.Rule(position['average'], force['average'])
+left5 = ctrl.Rule(angle['good'], force['highest'])
+left6 = ctrl.Rule(position['good'], force['high'])
+ruleSet = ctrl.ControlSystem([left1, left2, left5, left6])
+
+# left2 = ctrl.Rule(angle['poor'], force['lowest'])
+# # left3 = ctrl.Rule(angle['average'], force['average'])
+# left5 = ctrl.Rule(angle['good'], force['highest'])
+# left7 = ctrl.Rule(angle['average'] & position['poor'], force['high'])
+# left8 = ctrl.Rule(angle['average'] & position['good'], force['low'])
+# left9 = ctrl.Rule(angle['average'] & position['average'], force['average'])
+# ruleSet = ctrl.ControlSystem([left2, left5, left7, left8])
+
+SI = ctrl.ControlSystemSimulation(ruleSet)
+
+# fig, (ax0) = plt.subplots(nrows=1, figsize=(8, 9))
+# force_variable = np.arange(-100, 100, 0.01)
+# force_variable_left, force_variable_zero, force_variable_right = generateForceMembershipFunction(force_variable, 50)
+# angle_variable = np.arange(-3, 3, 0.01)
+# angle_variable_left, angle_variable_zero, angle_variable_right = generateMembershipFunction(angle_variable, 3)
+# cart_velocity_variable = np.arange(-2, 2, 0.01)
+# cart_velocity_variable_left, cart_velocity_variable_zero, cart_velocity_variable_right = generateMembershipFunction(
+#     cart_velocity_variable, 2)
+# cart_pos_variable = np.arange(-6, 6, 0.01)
+# cart_pos_variable_left, cart_pos_variable_zero, cart_pos_variable_right = generateMembershipFunction(
+#     cart_pos_variable, 6)
+# ax0.plot(force_variable, force_variable_left, 'b', linewidth=1.5, label='Left')
+# ax0.plot(force_variable, force_variable_zero, 'g', linewidth=1.5, label='Zero')
+# ax0.plot(force_variable, force_variable_right, 'r', linewidth=1.5, label='Right')
+# ax0.set_title('Angle')
+# ax0.legend()
+#
+# plt.tight_layout()
 # plt.show()
 #########################################################
 # KONIEC KODU INICJUJĄCEGO
@@ -180,22 +227,22 @@ while not control.WantExit:
        
        Sprawdź funkcję interp_membership
        """
-    poleLeft, poleZero, poleRight = fuzz.interp_membership(angle_variable, angle_variable_left, pole_angle), \
-                                    fuzz.interp_membership(angle_variable, angle_variable_zero, pole_angle), \
-                                    fuzz.interp_membership(angle_variable, angle_variable_right, pole_angle)
-
-    cartMovingLeft, cartIdle, cartMovingRight = fuzz.interp_membership(cart_velocity_variable,
-                                                                       cart_velocity_variable_left, cart_velocity), \
-                                                fuzz.interp_membership(cart_velocity_variable,
-                                                                       cart_velocity_variable_zero, cart_velocity), \
-                                                fuzz.interp_membership(cart_velocity_variable,
-                                                                       cart_velocity_variable_right, cart_velocity)
-    cartPosLeft, cartPosIdle, cartPosRight = fuzz.interp_membership(cart_pos_variable,
-                                                                    cart_pos_variable_left, cart_position), \
-                                             fuzz.interp_membership(cart_pos_variable,
-                                                                    cart_pos_variable_zero, cart_position), \
-                                             fuzz.interp_membership(cart_pos_variable,
-                                                                    cart_pos_variable_right, cart_position)
+    # poleLeft, poleZero, poleRight = fuzz.interp_membership(angle_variable, angle_variable_left, pole_angle), \
+    #                                 fuzz.interp_membership(angle_variable, angle_variable_zero, pole_angle), \
+    #                                 fuzz.interp_membership(angle_variable, angle_variable_right, pole_angle)
+    #
+    # cartMovingLeft, cartIdle, cartMovingRight = fuzz.interp_membership(cart_velocity_variable,
+    #                                                                    cart_velocity_variable_left, cart_velocity), \
+    #                                             fuzz.interp_membership(cart_velocity_variable,
+    #                                                                    cart_velocity_variable_zero, cart_velocity), \
+    #                                             fuzz.interp_membership(cart_velocity_variable,
+    #                                                                    cart_velocity_variable_right, cart_velocity)
+    # cartPosLeft, cartPosIdle, cartPosRight = fuzz.interp_membership(cart_pos_variable,
+    #                                                                 cart_pos_variable_left, cart_position), \
+    #                                          fuzz.interp_membership(cart_pos_variable,
+    #                                                                 cart_pos_variable_zero, cart_position), \
+    #                                          fuzz.interp_membership(cart_pos_variable,
+    #                                                                 cart_pos_variable_right, cart_position)
 
     """
     2. Wyznacza wartości aktywacji reguł rozmytych, wyznaczając stopień ich prawdziwości.
@@ -243,9 +290,9 @@ while not control.WantExit:
     # R = poleRight
     # I = poleZero
 
-    L = OR(poleLeft, AND(OR(poleLeft, poleZero), AND(cartMovingRight, cartPosRight)))
-    R = OR(poleRight, AND(OR(poleRight, poleZero), AND(cartMovingLeft, cartPosLeft)))
-    I = OR(AND(poleZero, cartPosIdle), AND(cartIdle, poleZero))
+    # L = OR(poleLeft, AND(OR(poleLeft, poleZero), AND(cartMovingRight, cartPosRight)))
+    # R = OR(poleRight, AND(OR(poleRight, poleZero), AND(cartMovingLeft, cartPosLeft)))
+    # I = OR(AND(poleZero, cartPosIdle), AND(cartIdle, poleZero))
     # poleLeft = 10 cart pos = 2
     # BEST?
     # L = OR(OR(poleLeft, poleZero), AND(cartMovingRight, cartPosRight))
@@ -260,6 +307,7 @@ while not control.WantExit:
     # R = AND(poleRight, OR(cartMovingLeft, cartPosLeft))
     # I = poleZero
 
+
     """
     
     4. Dla każdej reguły przeprowadź operację wnioskowania Mamdaniego.
@@ -271,43 +319,44 @@ while not control.WantExit:
        Uważaj - aktywacja wartości zmiennej lingwistycznej w konkluzji to nie liczba a zbiór rozmyty.
        Ponieważ stosujesz operator min(), to wynikiem będzie "przycięty od góry" zbiór rozmyty. 
        """
-    left = np.fmin(force_variable_left, L)
-    right = np.fmin(force_variable_right, R)
-    idle = np.fmin(force_variable_zero, I)
+    # left = np.fmin(force_variable_left, L)
+    # right = np.fmin(force_variable_right, R)
+    # idle = np.fmin(force_variable_zero, I)
     """
     5. Agreguj wszystkie aktywacje dla danej zmiennej wyjściowej.
     """
-    aggregatedActivations = OR(idle, OR(left, right))
+    # aggregatedActivations = OR(idle, OR(left, right))
     """
     6. Dokonaj defuzyfikacji (np. całkowanie ważone - centroid).
         """
-    fuzzy_response = fuzz.defuzz(force_variable, aggregatedActivations, 'centroid')
+    # fuzzy_response = fuzz.defuzz(force_variable, aggregatedActivations, 'centroid')
     # print("Fuzzy Response = :" + str(fuzzy_response))
     """
 
     7. Czym będzie wyjściowa wartość skalarna?
     
     """
+    SI.input['poleAngle'] = pole_angle
+    SI.input['polePos'] = cart_position
+    SI.compute()
+    fuzzy_response = SI.output['force']
+    # def noFuzzy():
+    #     if tip_velocity < 0:
+    #         # fuzzy_response = tip_velocity * abs(cart_velocity)
+    #         fuzzy_response = CartForce.UNIT_LEFT
+    #         if pole_angle <= -0.01:
+    #             fuzzy_response = CartForce.UNIT_LEFT * 10  # do zmiennej fuzzy_response zapisz wartość siły, jaką chcesz przyłożyć do wózka.
+    #     elif tip_velocity > 0:
+    #         # fuzzy_response = tip_velocity * abs(cart_velocity)
+    #         fuzzy_response = CartForce.UNIT_RIGHT
+    #         if pole_angle >= 0.01:
+    #             fuzzy_response = CartForce.UNIT_RIGHT * 10
+    #     else:
+    #         fuzzy_response = CartForce.IDLE_FORCE
+    #     return fuzzy_response
 
-
-    def noFuzzy():
-        if tip_velocity < 0:
-            # fuzzy_response = tip_velocity * abs(cart_velocity)
-            fuzzy_response = CartForce.UNIT_LEFT
-            if pole_angle <= -0.01:
-                fuzzy_response = CartForce.UNIT_LEFT * 10  # do zmiennej fuzzy_response zapisz wartość siły, jaką chcesz przyłożyć do wózka.
-        elif tip_velocity > 0:
-            # fuzzy_response = tip_velocity * abs(cart_velocity)
-            fuzzy_response = CartForce.UNIT_RIGHT
-            if pole_angle >= 0.01:
-                fuzzy_response = CartForce.UNIT_RIGHT * 10
-        else:
-            fuzzy_response = CartForce.IDLE_FORCE
-        return fuzzy_response
-
-
-    if noFuzzy is True:
-        fuzzy_response = noFuzzy()
+    # if noFuzzy is True:
+    #     fuzzy_response = noFuzzy()
     #
     # KONIEC algorytmu regulacji
     #########################
